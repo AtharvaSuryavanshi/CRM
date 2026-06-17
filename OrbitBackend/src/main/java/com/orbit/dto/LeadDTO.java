@@ -27,6 +27,8 @@ public class LeadDTO {
 
     private LocalDateTime createdAt;
 
+    private String area;
+
     // 🔥 Instead of full Manager object, use ID
     private Long managerId;
 }

@@ -25,13 +25,15 @@ function ContactsPage() {
   const fetchContactsAndAgents = async () => {
     setLoading(true);
     try {
-      const [contactsData, agentsData] = await Promise.all([
+      const [contactsData, agentsData, leadsData] = await Promise.all([
         ContactService.getContacts(),
-        AgentsService.getAllAgents()
+        AgentsService.getAllAgents(),
+        LeadService.getAllLeads()
       ]);
       
       const loadedContacts = Array.isArray(contactsData) ? contactsData : [];
       setAgents(Array.isArray(agentsData) ? agentsData : []);
+      const loadedLeads = Array.isArray(leadsData) ? leadsData : [];
 
       // Hydrate contacts with localStorage extras
       const hydrated = loadedContacts.map(c => {
@@ -42,7 +44,31 @@ function ContactsPage() {
         };
         return { ...c, ...extras };
       });
-      setContacts(hydrated);
+
+      // Track emails of manual contacts to prevent showing duplicates
+      const manualEmails = new Set(hydrated.map(c => c.email?.toLowerCase().trim()).filter(Boolean));
+
+      // Map leads to virtual contacts
+      const leadContacts = loadedLeads
+        .filter(l => l.email && !manualEmails.has(l.email.toLowerCase().trim()))
+        .map(l => {
+          const stored = localStorage.getItem(`contact_extra_lead-${l.id}`);
+          const extras = stored ? JSON.parse(stored) : {
+            type: l.status === "BOOKED" ? "BUSINESS" : "BUYER",
+            history: `Active Lead. Pipeline Status: ${l.status || "NEW"}. Source: ${l.source || "Unknown"}.${l.notes ? " Notes: " + l.notes : ""}`
+          };
+          return {
+            id: `lead-${l.id}`,
+            name: l.name,
+            email: l.email,
+            phone: l.phone,
+            isLead: true,
+            leadId: l.id,
+            ...extras
+          };
+        });
+
+      setContacts([...hydrated, ...leadContacts]);
     } catch (error) {
       console.error("Error fetching contacts page data:", error);
       setContacts([]);
@@ -72,8 +98,13 @@ function ContactsPage() {
   };
 
   const handleDelete = async () => {
-    await ContactService.deleteContact(modal.contact.id);
-    localStorage.removeItem(`contact_extra_${modal.contact.id}`);
+    if (modal.contact.isLead) {
+      await LeadService.deleteLead(modal.contact.leadId);
+      localStorage.removeItem(`contact_extra_lead-${modal.contact.leadId}`);
+    } else {
+      await ContactService.deleteContact(modal.contact.id);
+      localStorage.removeItem(`contact_extra_${modal.contact.id}`);
+    }
     fetchContactsAndAgents();
   };
 
@@ -199,13 +230,24 @@ function ContactsPage() {
                           >
                             <FaHistory />
                           </button>
-                          <button
-                            className="action-icon-btn edit-color"
-                            title="Promote to Active Lead"
-                            onClick={() => setModal({ type: "promote", contact })}
-                          >
-                            <FaRocket />
-                          </button>
+                          {contact.isLead ? (
+                            <button
+                              className="action-icon-btn edit-color"
+                              style={{ opacity: 0.4, cursor: "not-allowed" }}
+                              title="Already an Active Lead"
+                              disabled
+                            >
+                              <FaRocket />
+                            </button>
+                          ) : (
+                            <button
+                              className="action-icon-btn edit-color"
+                              title="Promote to Active Lead"
+                              onClick={() => setModal({ type: "promote", contact })}
+                            >
+                              <FaRocket />
+                            </button>
+                          )}
                           <button
                             className="action-icon-btn delete-color"
                             title="Delete contact"

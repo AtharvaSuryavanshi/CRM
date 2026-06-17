@@ -12,16 +12,32 @@ import ContactsPage from "../pages/Contacts/ContactsPage";
 import ManagerPage from "../pages/Manager/ManagerPage";
 import ReportsPage from "../pages/Reports/ReportsPage";
 
-// A wrapper component for routes that require authentication
-const ProtectedRoute = ({ children }) => {
+// A wrapper component for routes that require authentication and role permissions
+const ProtectedRoute = ({ children, allowedRoles }) => {
   const token = localStorage.getItem("token");
-  return token ? children : <Navigate to="/loginpage" replace />;
+  const userRole = localStorage.getItem("userRole") || "ADMIN";
+
+  if (!token) {
+    return <Navigate to="/loginpage" replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
+    return <Navigate to="/leads" replace />;
+  }
+
+  return children;
 };
 
 // A wrapper component for routes that should only be accessible when not logged in
 const PublicRoute = ({ children }) => {
   const token = localStorage.getItem("token");
-  return token ? <Navigate to="/dashboard" replace /> : children;
+  const userRole = localStorage.getItem("userRole") || "ADMIN";
+  
+  if (token) {
+    const defaultRoute = userRole === "ADMIN" ? "/dashboard" : "/leads";
+    return <Navigate to={defaultRoute} replace />;
+  }
+  return children;
 };
 
 function AppRoutes() {
@@ -60,7 +76,7 @@ function AppRoutes() {
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["ADMIN"]}>
             <DashboardPage />
           </ProtectedRoute>
         }
@@ -69,7 +85,7 @@ function AppRoutes() {
       <Route
         path="/leads"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["ADMIN", "MANAGER", "AGENT"]}>
             <LeadsPage />
           </ProtectedRoute>
         }
@@ -79,7 +95,7 @@ function AppRoutes() {
       <Route
         path="/manager"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["ADMIN"]}>
             <ManagerPage />
           </ProtectedRoute>
         }
@@ -88,7 +104,7 @@ function AppRoutes() {
       <Route
         path="/agents"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
             <AgentsPage />
           </ProtectedRoute>
         }
@@ -97,7 +113,7 @@ function AppRoutes() {
       <Route
         path="/contacts"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["ADMIN"]}>
             <ContactsPage />
           </ProtectedRoute>
         }
@@ -106,7 +122,7 @@ function AppRoutes() {
       <Route
         path="/reports"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
             <ReportsPage />
           </ProtectedRoute>
         }

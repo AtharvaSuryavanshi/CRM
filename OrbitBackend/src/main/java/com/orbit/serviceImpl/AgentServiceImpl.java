@@ -49,6 +49,7 @@ public class AgentServiceImpl implements AgentService {
         existing.setEmail(agent.getEmail());
         existing.setPhone(agent.getPhone());
         existing.setStatus(agent.getStatus());
+        existing.setArea(agent.getArea());
 
         // 🔐 Optional: update password only if provided
         if (agent.getPassword() != null && !agent.getPassword().isEmpty()) {

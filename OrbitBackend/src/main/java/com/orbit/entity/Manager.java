@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -45,7 +46,7 @@ public class Manager {
     @ManyToOne
     @JoinColumn(name = "admin_id")	
     private Admin admin;
-    @JsonIgnore
+    @JsonIgnoreProperties("manager")
     // ✅ One Manager has many Agents
     @OneToMany(mappedBy = "manager", cascade = CascadeType.ALL)
     private List<Agent> agents;

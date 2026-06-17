@@ -51,6 +51,8 @@ public class Lead {
 	private String priority;   // HIGH, MEDIUM, LOW
 	@Column
 	private LocalDateTime assignedDate;
+	@Column
+	private String area;
 	@ManyToOne
 	@JoinColumn(name = "agent_id")
 	@JsonIgnoreProperties("leads") 

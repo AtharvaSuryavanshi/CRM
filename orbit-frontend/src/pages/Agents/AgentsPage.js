@@ -14,7 +14,8 @@ import {
   FaUserTie,
   FaPhoneAlt,
   FaEnvelope,
-  FaBuilding
+  FaBuilding,
+  FaMapMarkerAlt
 } from "react-icons/fa";
 
 function AgentsPage() {
@@ -172,6 +173,12 @@ function AgentsPage() {
                     </span>
                   </div>
                   <div className="agent-detail-row">
+                    <FaMapMarkerAlt className="detail-row-icon" />
+                    <span className="detail-row-val">
+                      Service Area: <strong>{agent.area || "Unspecified"}</strong>
+                    </span>
+                  </div>
+                  <div className="agent-detail-row">
                     <FaBuilding className="detail-row-icon" />
                     <span className="detail-row-val">
                       Assigned Leads: <strong>{agent.leads?.length || 0}</strong>
@@ -218,7 +225,7 @@ function AgentsPage() {
 function AgentFormModal({ agent, managers, onClose, onSave }) {
   const [form, setForm] = useState({
     name: "", email: "", password: "", phone: "",
-    status: true, managerId: ""
+    status: true, managerId: "", area: ""
   });
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
@@ -233,7 +240,8 @@ function AgentFormModal({ agent, managers, onClose, onSave }) {
         password: "", // don't populate password
         phone: agent.phone || "",
         status: agent.status !== false,
-        managerId: agent.manager?.id || ""
+        managerId: agent.manager?.id || "",
+        area: agent.area || ""
       });
     }
   }, [agent]);
@@ -267,6 +275,7 @@ function AgentFormModal({ agent, managers, onClose, onSave }) {
         email: form.email,
         phone: form.phone,
         status: form.status,
+        area: form.area,
         manager: form.managerId ? { id: parseInt(form.managerId) } : null
       };
       if (form.password) {
@@ -355,6 +364,20 @@ function AgentFormModal({ agent, managers, onClose, onSave }) {
                     <option key={mg.id} value={mg.id}>{mg.name}</option>
                   ))}
                 </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group-custom">
+              <label className="input-label-custom">Service Area / Location</label>
+              <div className="input-box-custom">
+                <input
+                  name="area"
+                  value={form.area}
+                  onChange={handleChange}
+                  placeholder="e.g. Downtown, Suburbs, Northside"
+                />
               </div>
             </div>
           </div>

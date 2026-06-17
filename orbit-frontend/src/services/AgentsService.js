@@ -15,10 +15,22 @@ const deleteAgent = async (id) => {
   return res.data;
 };
 
+const updateAgent = async (id, data) => {
+  const res = await api.put(`/agents/${id}`, data);
+  return res.data;
+};
+
+const getAgentByEmail = async (email) => {
+  const res = await api.get(`/agents/email/${email}`);
+  return res.data;
+};
+
 const agentsService = {
   getAllAgents,
   createAgent,
   deleteAgent,
+  updateAgent,
+  getAgentByEmail,
 };
 
 export default agentsService;

@@ -69,6 +69,7 @@ public class LeadServiceImpl implements LeadService {
             existing.setSource(lead.getSource());
             existing.setNotes(lead.getNotes());
             existing.setPriority(lead.getPriority());
+            existing.setArea(lead.getArea());
 
             return leadRepository.save(existing);
         }

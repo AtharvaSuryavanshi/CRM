@@ -18,6 +18,7 @@ public class LeadMapper {
         dto.setSource(lead.getSource());
         dto.setNotes(lead.getNotes());
         dto.setCreatedAt(lead.getCreatedAt());
+        dto.setArea(lead.getArea());
 
         if (lead.getAgent() != null) {
             dto.setManagerId(lead.getAgent().getId()); // ⚠️ or agentId (better naming)
@@ -43,6 +44,7 @@ public class LeadMapper {
         lead.setSource(dto.getSource());
         lead.setNotes(dto.getNotes());
         lead.setCreatedAt(dto.getCreatedAt());
+        lead.setArea(dto.getArea());
 
         return lead;
     }

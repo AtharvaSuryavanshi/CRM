@@ -123,7 +123,11 @@ function LoginPage() {
       localStorage.setItem("userRole", role);
       localStorage.setItem("userEmail", email);
 
-      navigate("/dashboard");
+      if (role === "ADMIN") {
+        navigate("/dashboard");
+      } else {
+        navigate("/leads");
+      }
     } catch (err) {
       setErrorMessage(err.message);
     }

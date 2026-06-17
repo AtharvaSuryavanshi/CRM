@@ -116,3 +116,42 @@
 .logout-btn:hover .link-icon {
   color: #f43f5e;
 }
+
+/* Responsive Sidebar Styles */
+.sidebar-close-btn {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+    z-index: 100; /* above the overlay */
+  }
+  
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+  }
+
+  .sidebar-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 1.1rem;
+    cursor: pointer;
+    margin-left: auto;
+    padding: 6px;
+    border-radius: 50%;
+    transition: all 0.2s;
+  }
+
+  .sidebar-close-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+  }
+}

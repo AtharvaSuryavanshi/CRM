@@ -54,4 +54,10 @@ public class AgentController {
     public List<Agent> getAgentsByManager(@PathVariable Long managerId) {
         return agentService.getAgentsByManager(managerId);
     }
+
+    // 🔍 Find agent by email
+    @GetMapping("/email/{email}")
+    public Agent getAgentByEmail(@PathVariable String email) {
+        return agentService.getAgentByEmail(email);
+    }
 }

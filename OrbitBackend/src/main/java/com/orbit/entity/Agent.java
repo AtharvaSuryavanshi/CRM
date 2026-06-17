@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -41,11 +42,14 @@ public class Agent {
     @Column
     private LocalDateTime date;	
 
+    @Column
+    private String area;
+
     // ✅ Many Agents belong to one Manager
     @ManyToOne
     @JoinColumn(name = "manager_id")
     private Manager manager;
-    @JsonIgnore 
+    @JsonIgnoreProperties("agent")
 
     // ✅ One Agent handles many Leads
     @OneToMany(mappedBy = "agent", cascade = CascadeType.ALL)

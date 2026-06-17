@@ -37,6 +37,12 @@ const LeadService = {
     const res = await api.post("/leads/assign", { leadId, agentId });
     return res.data;
   },
+
+  // GET leads by agent ID
+  getLeadsByAgent: async (agentId) => {
+    const res = await api.get(`/leads/agent/${agentId}`);
+    return res.data;
+  },
 };
 
 export default LeadService;

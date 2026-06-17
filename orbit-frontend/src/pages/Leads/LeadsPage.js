@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Layout from "../../components/layout/Layout";
 import LeadService from "../../services/leadService";
 import AgentsService from "../../services/AgentsService";
+import FollowUpService from "../../services/FollowUpService";
 import "./LeadsPage.css";
 
 import {
@@ -88,10 +89,10 @@ function EmptyState({ onAdd }) {
 const EMPTY_FORM = {
   name: "", email: "", phone: "",
   status: "NEW", source: "", notes: "",
-  priority: "MEDIUM", agentId: ""
+  priority: "MEDIUM", agentId: "", area: ""
 };
 
-function LeadModal({ lead, agents, onClose, onSave }) {
+function LeadModal({ lead, agents, userRole, onClose, onSave }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
@@ -108,7 +109,8 @@ function LeadModal({ lead, agents, onClose, onSave }) {
         source: lead.source || "",
         notes: lead.notes || "",
         priority: lead.priority || "MEDIUM",
-        agentId: lead.agent?.id || ""
+        agentId: lead.agent?.id || "",
+        area: lead.area || ""
       });
     }
   }, [lead]);
@@ -147,6 +149,14 @@ function LeadModal({ lead, agents, onClose, onSave }) {
     }
   };
 
+  const sortedAgents = [...agents].sort((a, b) => {
+    const aMatch = form.area && a.area && a.area.toLowerCase().trim() === form.area.toLowerCase().trim();
+    const bMatch = form.area && b.area && b.area.toLowerCase().trim() === form.area.toLowerCase().trim();
+    if (aMatch && !bMatch) return -1;
+    if (!aMatch && bMatch) return 1;
+    return 0;
+  });
+
   return (
     <div className="modal-overlay animate-fade-in" onClick={onClose}>
       <div className="modal-box glass-panel animate-scale-up" onClick={(e) => e.stopPropagation()}>
@@ -166,6 +176,7 @@ function LeadModal({ lead, agents, onClose, onSave }) {
                   onChange={handleChange}
                   placeholder="Full name"
                   className={errors.name ? "input-error" : ""}
+                  disabled={userRole === "AGENT"}
                 />
               </div>
               {errors.name && <span className="error-msg">{errors.name}</span>}
@@ -181,6 +192,7 @@ function LeadModal({ lead, agents, onClose, onSave }) {
                   onChange={handleChange}
                   placeholder="email@example.com"
                   className={errors.email ? "input-error" : ""}
+                  disabled={userRole === "AGENT"}
                 />
               </div>
               {errors.email && <span className="error-msg">{errors.email}</span>}
@@ -196,6 +208,7 @@ function LeadModal({ lead, agents, onClose, onSave }) {
                   value={form.phone}
                   onChange={handleChange}
                   placeholder="+91 XXXXX XXXXX"
+                  disabled={userRole === "AGENT"}
                 />
               </div>
             </div>
@@ -216,7 +229,7 @@ function LeadModal({ lead, agents, onClose, onSave }) {
             <div className="form-group-custom">
               <label className="input-label-custom">Lead Priority</label>
               <div className="input-box-custom select-wrapper">
-                <select name="priority" value={form.priority} onChange={handleChange}>
+                <select name="priority" value={form.priority} onChange={handleChange} disabled={userRole === "AGENT"}>
                   <option value="HIGH">High Priority</option>
                   <option value="MEDIUM">Medium Priority</option>
                   <option value="LOW">Low Priority</option>
@@ -227,7 +240,7 @@ function LeadModal({ lead, agents, onClose, onSave }) {
             <div className="form-group-custom">
               <label className="input-label-custom">Lead Source</label>
               <div className="input-box-custom select-wrapper">
-                <select name="source" value={form.source} onChange={handleChange}>
+                <select name="source" value={form.source} onChange={handleChange} disabled={userRole === "AGENT"}>
                   <option value="">Select source</option>
                   <option value="Website">Website</option>
                   <option value="Referral">Referral</option>
@@ -241,15 +254,35 @@ function LeadModal({ lead, agents, onClose, onSave }) {
             </div>
           </div>
 
-          <div className="form-group-custom">
-            <label className="input-label-custom">Assign Handling Agent</label>
-            <div className="input-box-custom select-wrapper">
-              <select name="agentId" value={form.agentId} onChange={handleChange}>
-                <option value="">Select Agent (Unassigned)</option>
-                {agents.map((ag) => (
-                  <option key={ag.id} value={ag.id}>{ag.name} ({ag.email || "No email"})</option>
-                ))}
-              </select>
+          <div className="form-row">
+            <div className="form-group-custom">
+              <label className="input-label-custom">Assign Handling Agent</label>
+              <div className="input-box-custom select-wrapper">
+                <select name="agentId" value={form.agentId} onChange={handleChange} disabled={userRole === "AGENT"}>
+                  <option value="">Select Agent (Unassigned)</option>
+                  {sortedAgents.map((ag) => {
+                    const isMatch = form.area && ag.area && ag.area.toLowerCase().trim() === form.area.toLowerCase().trim();
+                    return (
+                      <option key={ag.id} value={ag.id}>
+                        {ag.name} {ag.area ? `(${ag.area})` : ""} {isMatch ? "⭐ [Nearest Area]" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+
+            <div className="form-group-custom">
+              <label className="input-label-custom">Lead Location / Area</label>
+              <div className="input-box-custom">
+                <input
+                  name="area"
+                  value={form.area}
+                  onChange={handleChange}
+                  placeholder="e.g. Downtown, Suburbs"
+                  disabled={userRole === "AGENT"}
+                />
+              </div>
             </div>
           </div>
 
@@ -281,15 +314,43 @@ function LeadModal({ lead, agents, onClose, onSave }) {
 
 // ─── VIEW MODAL ───────────────────────────────────────────────────────────────
 
-function ViewModal({ lead, agents, onClose, onEdit, onAssignQuick }) {
+function ViewModal({ lead, agents, userRole, onClose, onEdit, onAssignQuick }) {
   const [selectedAgentId, setSelectedAgentId] = useState(lead.agent?.id || "");
   const [assigning, setAssigning] = useState(false);
+
+  // Follow-up States
+  const [followUps, setFollowUps] = useState([]);
+  const [loadingFollowUps, setLoadingFollowUps] = useState(false);
+  
+  // New Follow-up Form State
+  const [newNotes, setNewNotes] = useState("");
+  const [newResponse, setNewResponse] = useState("Site Visit Scheduled");
+  const [newDate, setNewDate] = useState("");
+  const [submittingFollowUp, setSubmittingFollowUp] = useState(false);
 
   const formatDate = (dt) =>
     dt ? new Date(dt).toLocaleString("en-IN", {
       day: "2-digit", month: "short", year: "numeric",
       hour: "2-digit", minute: "2-digit",
     }) : "—";
+
+  const fetchFollowUps = async () => {
+    if (!lead?.id) return;
+    setLoadingFollowUps(true);
+    try {
+      const data = await FollowUpService.getFollowUps(lead.id);
+      setFollowUps(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error fetching followups:", err);
+    } finally {
+      setLoadingFollowUps(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFollowUps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lead]);
 
   const handleAssignChange = async (e) => {
     const agentId = e.target.value;
@@ -304,11 +365,70 @@ function ViewModal({ lead, agents, onClose, onEdit, onAssignQuick }) {
     }
   };
 
+  const handleFollowUpSubmit = async (e) => {
+    e.preventDefault();
+    if (!newNotes.trim()) {
+      alert("Please enter notes for the follow-up or field visit.");
+      return;
+    }
+    if (!newDate) {
+      alert("Please select a date and time for the follow-up/visit.");
+      return;
+    }
+    setSubmittingFollowUp(true);
+    try {
+      let isoDate = newDate;
+      if (isoDate.length === 16) {
+        isoDate += ":00";
+      }
+      const payload = {
+        notes: newNotes,
+        response: newResponse,
+        nextFollowUpDate: isoDate
+      };
+      await FollowUpService.addFollowUp(lead.id, payload);
+      setNewNotes("");
+      setNewResponse("Site Visit Scheduled");
+      setNewDate("");
+      fetchFollowUps();
+    } catch (err) {
+      alert("Error adding follow-up: " + err.message);
+    } finally {
+      setSubmittingFollowUp(false);
+    }
+  };
+
+  const sortedAgents = [...agents].sort((a, b) => {
+    const aMatch = lead.area && a.area && a.area.toLowerCase().trim() === lead.area.toLowerCase().trim();
+    const bMatch = lead.area && b.area && b.area.toLowerCase().trim() === lead.area.toLowerCase().trim();
+    if (aMatch && !bMatch) return -1;
+    if (!aMatch && bMatch) return 1;
+    return 0;
+  });
+
+  // Helper for response badge CSS class
+  const getBadgeClass = (resp) => {
+    const r = resp?.toLowerCase() || "";
+    if (r.includes("visit")) return "visit-scheduled";
+    if (r.includes("interested")) return "interested";
+    if (r.includes("booking") || r.includes("confirmed")) return "booking";
+    return "general";
+  };
+
+  // Helper to choose timeline dot icon
+  const getTimelineIcon = (resp) => {
+    const r = resp?.toLowerCase() || "";
+    if (r.includes("visit")) return "📍";
+    if (r.includes("call")) return "📞";
+    if (r.includes("booking")) return "🎉";
+    return "📅";
+  };
+
   return (
     <div className="modal-overlay animate-fade-in" onClick={onClose}>
       <div className="modal-box modal-view glass-panel animate-scale-up" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Client Inquiries & Details</h2>
+          <h2>Client Inquiry & Details</h2>
           <button className="modal-close-btn" onClick={onClose}><FaTimes /></button>
         </div>
 
@@ -339,6 +459,10 @@ function ViewModal({ lead, agents, onClose, onEdit, onAssignQuick }) {
             <span className="view-item-val">{lead.source || "—"}</span>
           </div>
           <div className="view-grid-item">
+            <span className="view-item-lbl">Area / Location</span>
+            <span className="view-item-val">{lead.area || "—"}</span>
+          </div>
+          <div className="view-grid-item">
             <span className="view-item-lbl">Registered On</span>
             <span className="view-item-val">{formatDate(lead.createdAt)}</span>
           </div>
@@ -350,26 +474,131 @@ function ViewModal({ lead, agents, onClose, onEdit, onAssignQuick }) {
             <span>Assigned Handling Agent</span>
           </h4>
           <div className="flex gap-4 items-center">
-            <div className="input-box-custom select-wrapper" style={{ flexGrow: 1 }}>
-              <select value={selectedAgentId} onChange={handleAssignChange} disabled={assigning}>
-                <option value="">No Agent Assigned</option>
-                {agents.map((ag) => (
-                  <option key={ag.id} value={ag.id}>{ag.name}</option>
-                ))}
-              </select>
-            </div>
+            {userRole === "AGENT" ? (
+              <span className="view-item-val font-semibold text-slate-700">
+                {lead.agent?.name || "No Agent Assigned"}
+              </span>
+            ) : (
+              <div className="input-box-custom select-wrapper" style={{ flexGrow: 1 }}>
+                <select value={selectedAgentId} onChange={handleAssignChange} disabled={assigning}>
+                  <option value="">No Agent Assigned</option>
+                  {sortedAgents.map((ag) => {
+                    const isMatch = lead.area && ag.area && ag.area.toLowerCase().trim() === lead.area.toLowerCase().trim();
+                    return (
+                      <option key={ag.id} value={ag.id}>
+                        {ag.name} {ag.area ? `(${ag.area})` : ""} {isMatch ? "⭐ [Nearest Area]" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
             {assigning && <span className="text-xs text-indigo-600 font-semibold">Assigning...</span>}
           </div>
         </div>
 
         {lead.notes && (
-          <div className="view-notes-box">
+          <div className="view-notes-box mb-4">
             <span className="view-item-lbl">Notes & Property Preferences</span>
             <p className="view-item-val notes-para">{lead.notes}</p>
           </div>
         )}
 
-        <div className="modal-actions-panel mt-6">
+        {/* FOLLOW-UP & FIELD VISITS TIMELINE */}
+        <div className="followups-container-box border-t border-slate-100 pt-4">
+          <h4 className="followups-title-lbl">
+            <span>📅 Visits & Follow-up History</span>
+          </h4>
+          
+          {loadingFollowUps ? (
+            <div className="text-center py-4">
+              <div className="leads-progress-spinner" style={{ width: "24px", height: "24px" }} />
+              <p className="text-xs text-slate-500">Loading visit logs...</p>
+            </div>
+          ) : followUps.length === 0 ? (
+            <div className="no-followups-card">
+              No visits or follow-ups scheduled yet for this lead.
+            </div>
+          ) : (
+            <div className="followups-timeline-scroll">
+              {followUps.map((fp, idx) => (
+                <div key={fp.id || idx} className="followup-timeline-item active">
+                  <div className="timeline-icon-dot">
+                    {getTimelineIcon(fp.response)}
+                  </div>
+                  <div className="timeline-content-card">
+                    <div className="timeline-meta-row">
+                      <span className={`timeline-response-badge ${getBadgeClass(fp.response)}`}>
+                        {fp.response}
+                      </span>
+                      <span className="timeline-date-txt">
+                        {formatDate(fp.nextFollowUpDate)}
+                      </span>
+                    </div>
+                    <p className="timeline-notes-para">{fp.notes}</p>
+                    <span className="timeline-logged-lbl">
+                      Logged on {fp.createdAt ? new Date(fp.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "—"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* SCHEDULE NEW FOLLOW-UP (Agent/Manager can schedule) */}
+          <div className="schedule-followup-form glass-panel">
+            <div className="schedule-title-txt flex items-center gap-2">
+              <span>🗓️ Schedule Field Visit / Follow-up</span>
+            </div>
+            
+            <form onSubmit={handleFollowUpSubmit} className="modal-form">
+              <div className="form-row">
+                <div className="form-group-custom">
+                  <label className="input-label-custom">Event Type / Response</label>
+                  <div className="input-box-custom select-wrapper">
+                    <select value={newResponse} onChange={(e) => setNewResponse(e.target.value)}>
+                      <option value="Site Visit Scheduled">Site Visit Scheduled</option>
+                      <option value="Follow-up Call Scheduled">Follow-up Call Scheduled</option>
+                      <option value="Negotiation / Quote Requested">Negotiation / Quote Requested</option>
+                      <option value="Property Shown - Interested">Property Shown - Interested</option>
+                      <option value="Property Shown - Not Interested">Property Shown - Not Interested</option>
+                      <option value="Booking Confirmed">Booking Confirmed</option>
+                      <option value="Meeting Scheduled">Meeting Scheduled</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group-custom">
+                  <label className="input-label-custom">Scheduled Date & Time</label>
+                  <div className="input-box-custom">
+                    <input
+                      type="datetime-local"
+                      value={newDate}
+                      onChange={(e) => setNewDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-group-custom">
+                <label className="input-label-custom">Activity Details & Notes</label>
+                <textarea
+                  value={newNotes}
+                  onChange={(e) => setNewNotes(e.target.value)}
+                  placeholder="Describe the visit details, property selection, customer preferences..."
+                  rows={2}
+                  className="modal-textarea"
+                />
+              </div>
+
+              <button type="submit" className="primary-submit-btn mt-2" style={{ width: "auto" }} disabled={submittingFollowUp}>
+                {submittingFollowUp ? "Scheduling..." : "Schedule Follow-up"}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div className="modal-actions-panel mt-6 pt-4 border-t border-slate-100">
           <button className="secondary-submit-btn" style={{ width: "auto" }} onClick={onClose}>Close</button>
           <button className="primary-submit-btn" style={{ width: "auto" }} onClick={() => { onClose(); onEdit(lead); }}>
             <FaEdit /> Edit Lead
@@ -408,8 +637,6 @@ function DeleteConfirm({ lead, onClose, onConfirm }) {
   );
 }
 
-// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
-
 function LeadsPage() {
   const [leads, setLeads]               = useState([]);
   const [agents, setAgents]             = useState([]);
@@ -418,13 +645,30 @@ function LeadsPage() {
   const [filterStatus, setFilterStatus] = useState("All");
   const [modal, setModal]               = useState(null);
 
+  const userRole = localStorage.getItem("userRole") || "ADMIN";
+
   const fetchLeadsAndAgents = async () => {
     setLoading(true);
     try {
-      const [leadsData, agentsData] = await Promise.all([
-        LeadService.getAllLeads(),
-        AgentsService.getAllAgents()
-      ]);
+      const userRoleCur = localStorage.getItem("userRole") || "ADMIN";
+      const userEmailCur = localStorage.getItem("userEmail") || "";
+      
+      let leadsData = [];
+      const agentsData = await AgentsService.getAllAgents();
+      
+      if (userRoleCur === "AGENT" && userEmailCur) {
+        try {
+          const agentProfile = await AgentsService.getAgentByEmail(userEmailCur.trim().toLowerCase());
+          if (agentProfile && agentProfile.id) {
+            leadsData = await LeadService.getLeadsByAgent(agentProfile.id);
+          }
+        } catch (err) {
+          console.error("Error loading agent leads:", err);
+        }
+      } else {
+        leadsData = await LeadService.getAllLeads();
+      }
+
       setLeads(Array.isArray(leadsData) ? leadsData : []);
       setAgents(Array.isArray(agentsData) ? agentsData : []);
     } catch (err) {
@@ -438,18 +682,18 @@ function LeadsPage() {
 
   // ── CRUD handlers ──
   const handleCreate = async (formData) => {
-    const newLead = await LeadService.createLead(formData);
-    setLeads((prev) => [newLead, ...prev]);
+    await LeadService.createLead(formData);
+    fetchLeadsAndAgents();
   };
 
   const handleUpdate = async (formData) => {
-    const updated = await LeadService.updateLead(modal.lead.id, formData);
-    setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
+    await LeadService.updateLead(modal.lead.id, formData);
+    fetchLeadsAndAgents();
   };
 
   const handleDelete = async () => {
     await LeadService.deleteLead(modal.lead.id);
-    setLeads((prev) => prev.filter((l) => l.id !== modal.lead.id));
+    fetchLeadsAndAgents();
   };
 
   const handleAssignQuick = async (leadId, agentId) => {
@@ -467,14 +711,13 @@ function LeadsPage() {
           source: originalLead.source,
           notes: originalLead.notes,
           priority: originalLead.priority,
+          area: originalLead.area,
           agent: null
         };
         await LeadService.updateLead(leadId, updatedPayload);
       }
     }
-    // Refresh leads list
-    const data = await LeadService.getAllLeads();
-    setLeads(Array.isArray(data) ? data : []);
+    fetchLeadsAndAgents();
   };
 
   // ── Filter & Search ──
@@ -505,9 +748,11 @@ function LeadsPage() {
               Manage client inquiries, contact priorities, and team assignments.
             </p>
           </div>
-          <button className="primary-submit-btn" style={{ width: "auto" }} onClick={() => setModal({ type: "add" })}>
-            <FaPlus /> Add New Lead
-          </button>
+          {userRole !== "AGENT" && (
+            <button className="primary-submit-btn" style={{ width: "auto" }} onClick={() => setModal({ type: "add" })}>
+              <FaPlus /> Add New Lead
+            </button>
+          )}
         </div>
 
         {/* Status Filter Pills */}
@@ -587,7 +832,14 @@ function LeadsPage() {
                             </div>
                             <div className="client-name-details">
                               <span className="client-name-text">{lead.name}</span>
-                              <span className="client-source-text">via {lead.source || "Direct Entry"}</span>
+                              <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "3px" }}>
+                                <span className="client-source-text">via {lead.source || "Direct Entry"}</span>
+                                {lead.area && (
+                                  <span className="lead-area-tag" style={{ fontSize: "11px", background: "rgba(255, 255, 255, 0.07)", padding: "1px 6px", borderRadius: "10px", color: "#64748b", border: "1px solid #cbd5e1" }}>
+                                    📍 {lead.area}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -638,13 +890,15 @@ function LeadsPage() {
                             >
                               <FaEdit />
                             </button>
-                            <button
-                              className="action-icon-btn delete-color"
-                              title="Delete lead"
-                              onClick={() => setModal({ type: "delete", lead })}
-                            >
-                              <FaTrash />
-                            </button>
+                            {userRole !== "AGENT" && (
+                              <button
+                                className="action-icon-btn delete-color"
+                                title="Delete lead"
+                                onClick={() => setModal({ type: "delete", lead })}
+                              >
+                                <FaTrash />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -659,15 +913,16 @@ function LeadsPage() {
 
       {/* Modals Container */}
       {modal?.type === "add" && (
-        <LeadModal lead={null} agents={agents} onClose={() => setModal(null)} onSave={handleCreate} />
+        <LeadModal lead={null} agents={agents} userRole={userRole} onClose={() => setModal(null)} onSave={handleCreate} />
       )}
       {modal?.type === "edit" && (
-        <LeadModal lead={modal.lead} agents={agents} onClose={() => setModal(null)} onSave={handleUpdate} />
+        <LeadModal lead={modal.lead} agents={agents} userRole={userRole} onClose={() => setModal(null)} onSave={handleUpdate} />
       )}
       {modal?.type === "view" && (
         <ViewModal
           lead={modal.lead}
           agents={agents}
+          userRole={userRole}
           onClose={() => setModal(null)}
           onEdit={(lead) => setModal({ type: "edit", lead })}
           onAssignQuick={handleAssignQuick}

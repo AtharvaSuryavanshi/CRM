@@ -290,9 +290,13 @@
   background: transparent;
   border: none;
   outline: none;
-  color: #fff;
+  color: #0f172a;
   font-size: 0.95rem;
   font-weight: 500;
+}
+
+.signup-container .input-box-custom input {
+  color: #fff;
 }
 
 .input-box-custom input::placeholder {
